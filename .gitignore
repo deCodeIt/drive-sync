@@ -129,4 +129,4 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
-drive-sync-key-sa.json
+*-key-sa.json
