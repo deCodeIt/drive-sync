@@ -53,7 +53,7 @@ const main = async () => {
       console.log( `${indent}${node.name} (${node.size} bytes)` );
 
       if( node.children && node.children.length > 0 ) {
-        displayTree( node.children, indent + '  ' );
+        displayTree( node.children, indent + '--' );
       }
     } );
   }
@@ -66,10 +66,13 @@ const main = async () => {
     while( nextPageToken !== undefined && nextPageToken !== null ) {
       // Explicitly typing the response
       const resp: GaxiosResponse<drive_v3.Schema$FileList> = await drive.files.list( {
+        q: '\'me\' in owners',
         pageSize: 1000, // Set page size as needed
         fields: 'nextPageToken, files(id, name, mimeType, size, parents)',
         pageToken: nextPageToken,
+        // orderBy: 'quotaBytesUsed desc',
       } );
+      console.log( `numFiles: ${resp.data.files?.length}, nextPageToken: ${nextPageToken}` );
 
       if( resp.data.files ) {
         files = files.concat( resp.data.files );
@@ -87,6 +90,16 @@ const main = async () => {
 
     // Display the tree structure
     displayTree( tree );
+
+    for( const file of files ) {
+      if( !file.id ) {
+        continue;
+      }
+      await drive.files.delete( {
+        fileId: file.id,
+      } );
+      console.log( 'Deleted', file.name, file.id );
+    }
   }
 
   // try {
