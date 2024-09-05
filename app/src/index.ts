@@ -13,6 +13,7 @@ const auth = new google.auth.GoogleAuth( { keyFile: credentialFilename, scopes: 
 const drive = google.drive( { version: 'v3', auth } );
 
 async function downloadFolder( driveFolderId: string, name: string, parentDir: string ): Promise<void> {
+  console.log( 'downloadFolder', parentDir, name, driveFolderId );
   const downloadsFolder = path.resolve( parentDir, name );
   if( !fs.existsSync( downloadsFolder ) ) {
     fs.mkdirSync( downloadsFolder );
@@ -61,13 +62,14 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
         { responseType: 'stream' },
         ( err, resp ) => {
           if( !resp?.data ) {
-            return;
+            console.warn( 'No data' );
+            resolve( false );
           }
           if( err ) {
-            console.log( err );
-            return;
+            console.error( err );
+            resolve( false );
           }
-          resp.data
+          resp?.data
             .on( 'data', function( chunk ) {
               downloadedBytes += chunk.length;
               process.stdout.write( `${downloadedBytes}/${f.size}\r` );
@@ -89,12 +91,14 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
     console.log( 'Value:', value );
   }
 
+  console.log( 'foldersToProcessLater', foldersToProcessLater );
+
   for( const folder of foldersToProcessLater ) {
     await downloadFolder( folder.id!, folder.name!, downloadsFolder );
   }
 }
 
-downloadFolder( process.env.DRIVE_FOLDER_ID!, 'sync_files', process.env.LOCAL_DIR! ).catch( err => {
+downloadFolder( process.env.DRIVE_FOLDER_ID!, '', process.env.LOCAL_DIR! ).catch( err => {
   console.error( err );
 } ).finally( () => {
   console.log( 'Done!' );
