@@ -63,7 +63,7 @@ const main = async () => {
     let nextPageToken: string | undefined = '';
 
     // Fetch all files and folders
-    while( nextPageToken !== undefined || nextPageToken !== null ) {
+    while( nextPageToken !== undefined && nextPageToken !== null ) {
       // Explicitly typing the response
       const resp: GaxiosResponse<drive_v3.Schema$FileList> = await drive.files.list( {
         pageSize: 1000, // Set page size as needed
