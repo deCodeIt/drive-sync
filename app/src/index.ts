@@ -40,8 +40,10 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   // console.log( files.length, fileSet.size );
 
   const foldersToProcessLater: typeof files = [];
+  let count = 0;
 
   for await( const value of asyncPool( 10, files, async ( f ) => {
+    count++;
     if( f.mimeType === 'application/vnd.google-apps.folder' ) {
       foldersToProcessLater.push( f );
       return;
@@ -72,7 +74,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
           resp?.data
             .on( 'data', function( chunk ) {
               downloadedBytes += chunk.length;
-              process.stdout.write( `${downloadedBytes}/${f.size}\r` );
+              process.stdout.write( `${count}/${files.length} ${downloadedBytes}/${f.size}\r` );
               dest.write( chunk );
             } )
             .on( 'end', () => {
