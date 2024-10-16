@@ -42,7 +42,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   const foldersToProcessLater: typeof files = [];
   let count = 0;
 
-  for await( const value of asyncPool( 10, files, async ( f ) => {
+  for await( const value of asyncPool( 5, files, async ( f ) => {
     count++;
     if( f.mimeType === 'application/vnd.google-apps.folder' ) {
       foldersToProcessLater.push( f );
