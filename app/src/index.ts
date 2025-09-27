@@ -32,7 +32,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   console.log( 'downloadFolder', parentDir, name, driveFolderId );
   const downloadsFolder = path.resolve( parentDir, name );
   if( !fs.existsSync( downloadsFolder ) ) {
-    fs.mkdirSync( downloadsFolder );
+    fs.mkdirSync( downloadsFolder, { recursive: true } );
   }
   const listFilesResp = await drive.files.list(
     {
