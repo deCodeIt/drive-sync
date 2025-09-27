@@ -29,7 +29,6 @@
   "dependencies": {
     "@datastructures-js/priority-queue": "^6.3.0",
     "@google-cloud/local-auth": "^2.1.0",
-    "dotenv-flow": "^4.0.1",
     "googleapis": "^105.0.0",
     "jsonwebtoken": "^9.0.2",
     "swagger-jsdoc": "^6.2.8",
