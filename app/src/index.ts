@@ -12,6 +12,22 @@ const scopes = [ 'https://www.googleapis.com/auth/drive' ];
 const auth = new google.auth.GoogleAuth( { keyFile: credentialFilename, scopes: scopes } );
 const drive = google.drive( { version: 'v3', auth } );
 
+// Google Docs Editor MIME types that need to be exported instead of downloaded
+const GOOGLE_DOCS_MIME_TYPES = {
+  'application/vnd.google-apps.document': { extension: '.docx', exportMimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+  'application/vnd.google-apps.spreadsheet': { extension: '.xlsx', exportMimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+  'application/vnd.google-apps.presentation': { extension: '.pptx', exportMimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+  'application/vnd.google-apps.drawing': { extension: '.png', exportMimeType: 'image/png' },
+  'application/vnd.google-apps.script': { extension: '.json', exportMimeType: 'application/vnd.google-apps.script+json' },
+  'application/vnd.google-apps.form': { extension: '.zip', exportMimeType: 'application/zip' }
+};
+
+const googleDocsMimeTypes = Object.keys(GOOGLE_DOCS_MIME_TYPES);
+
+function isGoogleDocsFile(mimeType: string): boolean {
+  return googleDocsMimeTypes.includes(mimeType);
+}
+
 async function downloadFolder( driveFolderId: string, name: string, parentDir: string ): Promise<void> {
   console.log( 'downloadFolder', parentDir, name, driveFolderId );
   const downloadsFolder = path.resolve( parentDir, name );
@@ -48,9 +64,29 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
       foldersToProcessLater.push( f );
       return;
     }
-    const filePath = path.resolve( downloadsFolder, f.name! );
+
+    // Determine the correct file path and extension
+    let fileName = f.name!;
+    let filePath = path.resolve( downloadsFolder, fileName );
+    
+    // For Google Docs Editor files, add the appropriate extension
+    if( isGoogleDocsFile( f.mimeType! ) ) {
+      const docInfo = GOOGLE_DOCS_MIME_TYPES[f.mimeType! as keyof typeof GOOGLE_DOCS_MIME_TYPES];
+      if( !fileName.endsWith( docInfo.extension ) ) {
+        fileName += docInfo.extension;
+        filePath = path.resolve( downloadsFolder, fileName );
+      }
+    }
+
+    // Skip if file already exists and has reasonable size
     if( fs.existsSync( filePath ) ) {
-      if( fs.statSync( filePath ).size >= parseInt( f.size! ) ) {
+      const existingSize = fs.statSync( filePath ).size;
+      // For Google Docs files, we can't compare size directly since export size differs
+      if( !isGoogleDocsFile( f.mimeType! ) && existingSize >= parseInt( f.size! ) ) {
+        return;
+      }
+      // For Google Docs, skip if file exists and has some content (> 0 bytes)
+      if( isGoogleDocsFile( f.mimeType! ) && existingSize > 0 ) {
         return;
       }
       fs.unlinkSync( filePath );
@@ -58,36 +94,79 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
 
     let downloadedBytes = 0;
     const dest = fs.createWriteStream( filePath );
+    
     return new Promise( ( resolve ) => {
-      drive.files.get(
-        { fileId: f.id!, alt: 'media', acknowledgeAbuse: true },
-        { responseType: 'stream' },
-        ( err, resp ) => {
-          if( !resp?.data ) {
-            console.warn( 'No data' );
-            resolve( false );
-          }
-          if( err ) {
-            console.error( err );
-            resolve( false );
-          }
-          resp?.data
-            .on( 'data', function( chunk ) {
-              downloadedBytes += chunk.length;
-              process.stdout.write( `${count}/${files.length} ${downloadedBytes}/${f.size}\r` );
-              dest.write( chunk );
-            } )
-            .on( 'end', () => {
-              console.log( `Done: ${f.name}` );
-              dest.close();
-              resolve( true );
-            } )
-            .on( 'error', ( errr ) => {
-              console.log( errr );
+      // Handle Google Docs Editor files with export
+      if( isGoogleDocsFile( f.mimeType! ) ) {
+        const docInfo = GOOGLE_DOCS_MIME_TYPES[f.mimeType! as keyof typeof GOOGLE_DOCS_MIME_TYPES];
+        drive.files.export(
+          { 
+            fileId: f.id!, 
+            mimeType: docInfo.exportMimeType 
+          },
+          { responseType: 'stream' },
+          ( err, resp ) => {
+            if( !resp?.data ) {
+              console.warn( 'No data for export:', f.name );
               resolve( false );
-            } );
-        }
-      );
+              return;
+            }
+            if( err ) {
+              console.error( 'Export error:', err );
+              resolve( false );
+              return;
+            }
+            resp.data
+              .on( 'data', function( chunk ) {
+                downloadedBytes += chunk.length;
+                process.stdout.write( `${count}/${files.length} ${downloadedBytes} bytes (exported)\r` );
+                dest.write( chunk );
+              } )
+              .on( 'end', () => {
+                console.log( `Done (exported): ${fileName}` );
+                dest.close();
+                resolve( true );
+              } )
+              .on( 'error', ( errr ) => {
+                console.log( 'Stream error:', errr );
+                resolve( false );
+              } );
+          }
+        );
+      } else {
+        // Handle regular files with download
+        drive.files.get(
+          { fileId: f.id!, alt: 'media', acknowledgeAbuse: true },
+          { responseType: 'stream' },
+          ( err, resp ) => {
+            if( !resp?.data ) {
+              console.warn( 'No data for download:', f.name );
+              resolve( false );
+              return;
+            }
+            if( err ) {
+              console.error( 'Download error:', err );
+              resolve( false );
+              return;
+            }
+            resp.data
+              .on( 'data', function( chunk ) {
+                downloadedBytes += chunk.length;
+                process.stdout.write( `${count}/${files.length} ${downloadedBytes}/${f.size}\r` );
+                dest.write( chunk );
+              } )
+              .on( 'end', () => {
+                console.log( `Done: ${f.name}` );
+                dest.close();
+                resolve( true );
+              } )
+              .on( 'error', ( errr ) => {
+                console.log( 'Stream error:', errr );
+                resolve( false );
+              } );
+          }
+        );
+      }
     } );
   } ) ) {
     console.log( 'Value:', value );
