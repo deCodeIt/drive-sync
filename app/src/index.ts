@@ -6,7 +6,7 @@ import path from 'path';
 
 config();
 
-const credentialFilename = path.resolve( __dirname, '../secret/drive-sync-key-sa.json' );
+const credentialFilename = path.resolve( __dirname, `../secret/${process.env.SECRET_FILE}` );
 const scopes = [ 'https://www.googleapis.com/auth/drive' ];
 
 const auth = new google.auth.GoogleAuth( { keyFile: credentialFilename, scopes: scopes } );

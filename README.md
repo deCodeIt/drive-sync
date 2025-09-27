@@ -5,6 +5,7 @@ Follow the below steps to setup the api.
 ```
 DRIVE_FOLDER_ID=<Drive Folder Id>
 LOCAL_DIR=<Absolute Local Dir Path>
+SECRET_FILE=drive-sync-key-sa.json
 ```
 
 2. Install npm package dependencies using `npm install`  

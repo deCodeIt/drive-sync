@@ -35,6 +35,9 @@ bower_components
 # node-waf configuration
 .lock-wscript
 
+# OS files
+.DS_Store
+
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
@@ -130,3 +133,6 @@ dist
 .pnp.*
 
 *-key-sa.json
+
+app/secret/**/*
+!app/secret/drive-sync-key-sa.example.json
