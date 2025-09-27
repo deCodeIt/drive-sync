@@ -84,7 +84,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   );
 
   const files = listFilesResp.data.files || [];
-  console.log( files );
+  // console.log( files );
 
   // const fileSet = new Set<string | null | undefined>();
   // files.forEach( f => {
