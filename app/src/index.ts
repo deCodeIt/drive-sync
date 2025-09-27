@@ -106,12 +106,15 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
       return;
     }
 
+    // Cache the Google Docs check to avoid multiple calls
+    const isGoogleDoc = isGoogleDocsFile( f.mimeType! );
+    
     // Determine the correct file path and extension
     let fileName = sanitizeFileName( f.name! );
     let filePath = path.resolve( downloadsFolder, fileName );
     
     // For Google Docs Editor files, add the appropriate extension
-    if( isGoogleDocsFile( f.mimeType! ) ) {
+    if( isGoogleDoc ) {
       const docInfo = GOOGLE_DOCS_MIME_TYPES[f.mimeType! as keyof typeof GOOGLE_DOCS_MIME_TYPES];
       if( !fileName.endsWith( docInfo.extension ) ) {
         fileName += docInfo.extension;
@@ -123,11 +126,11 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
     if( fs.existsSync( filePath ) ) {
       const existingSize = fs.statSync( filePath ).size;
       // For Google Docs files, we can't compare size directly since export size differs
-      if( !isGoogleDocsFile( f.mimeType! ) && existingSize >= parseInt( f.size! ) ) {
+      if( !isGoogleDoc && existingSize >= parseInt( f.size! ) ) {
         return;
       }
       // For Google Docs, skip if file exists and has some content (> 0 bytes)
-      if( isGoogleDocsFile( f.mimeType! ) && existingSize > 0 ) {
+      if( isGoogleDoc && existingSize > 0 ) {
         return;
       }
       fs.unlinkSync( filePath );
@@ -138,7 +141,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
     
     return new Promise( ( resolve ) => {
       // Handle Google Docs Editor files with export
-      if( isGoogleDocsFile( f.mimeType! ) ) {
+      if( isGoogleDoc ) {
         const docInfo = GOOGLE_DOCS_MIME_TYPES[f.mimeType! as keyof typeof GOOGLE_DOCS_MIME_TYPES];
         drive.files.export(
           { 
