@@ -1,12 +1,43 @@
-import { config } from 'dotenv-flow';
 import { google } from 'googleapis';
 import asyncPool from 'tiny-async-pool';
 import fs from 'fs';
 import path from 'path';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
-config();
+// Parse command line arguments with yargs
+const argv = yargs(hideBin(process.argv))
+  .option('secret', {
+    alias: 's',
+    type: 'string',
+    description: 'Service account key file name (in secret/ folder)',
+    demandOption: true
+  })
+  .option('folder', {
+    alias: 'f',
+    type: 'string',
+    description: 'Google Drive folder ID to sync',
+    demandOption: true
+  })
+  .option('output', {
+    alias: 'o',
+    type: 'string',
+    description: 'Local directory path for downloads',
+    demandOption: true
+  })
+  .option('concurrency', {
+    alias: 'c',
+    type: 'number',
+    description: 'Number of concurrent downloads',
+    default: 5
+  })
+  .help()
+  .alias('help', 'h')
+  .example('$0 --secret drive-sync-key-sa.json --folder 1ABC123xyz --output /path/to/folder', 'Download Google Drive folder')
+  .example('$0 -s key.json -f 1ABC123xyz -o ./downloads -c 3', 'Download with 3 concurrent downloads')
+  .parseSync();
 
-const credentialFilename = path.resolve( __dirname, `../secret/${process.env.SECRET_FILE}` );
+const credentialFilename = path.resolve( __dirname, `../secret/${argv.secret}` );
 const scopes = [ 'https://www.googleapis.com/auth/drive' ];
 
 const auth = new google.auth.GoogleAuth( { keyFile: credentialFilename, scopes: scopes } );
@@ -58,7 +89,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   const foldersToProcessLater: typeof files = [];
   let count = 0;
 
-  for await( const value of asyncPool( 5, files, async ( f ) => {
+  for await( const value of asyncPool( argv.concurrency, files, async ( f ) => {
     count++;
     if( f.mimeType === 'application/vnd.google-apps.folder' ) {
       foldersToProcessLater.push( f );
@@ -179,7 +210,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   }
 }
 
-downloadFolder( process.env.DRIVE_FOLDER_ID!, '', process.env.LOCAL_DIR! ).catch( err => {
+downloadFolder( argv.folder, '', argv.output ).catch( err => {
   console.error( err );
 } ).finally( () => {
   console.log( 'Done!' );
