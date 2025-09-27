@@ -59,9 +59,19 @@ function isGoogleDocsFile(mimeType: string): boolean {
   return googleDocsMimeTypes.includes(mimeType);
 }
 
+function sanitizeFileName(fileName: string): string {
+  // Replace characters that are problematic in file/folder names with hyphens
+  return fileName
+    .replace(/[\/\\:*?"<>|]/g, '-')  // Replace all problematic characters with hyphen
+    .replace(/-+/g, '-')             // Replace multiple consecutive hyphens with single hyphen
+    .replace(/^-+|-+$/g, '')         // Remove leading and trailing hyphens
+    .trim();
+}
+
 async function downloadFolder( driveFolderId: string, name: string, parentDir: string ): Promise<void> {
   console.log( 'downloadFolder', parentDir, name, driveFolderId );
-  const downloadsFolder = path.resolve( parentDir, name );
+  const sanitizedName = sanitizeFileName( name );
+  const downloadsFolder = path.resolve( parentDir, sanitizedName );
   if( !fs.existsSync( downloadsFolder ) ) {
     fs.mkdirSync( downloadsFolder, { recursive: true } );
   }
@@ -97,7 +107,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
     }
 
     // Determine the correct file path and extension
-    let fileName = f.name!;
+    let fileName = sanitizeFileName( f.name! );
     let filePath = path.resolve( downloadsFolder, fileName );
     
     // For Google Docs Editor files, add the appropriate extension
