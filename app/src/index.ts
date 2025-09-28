@@ -106,6 +106,8 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
       return;
     }
 
+    console.log( `Processing file: ${f.name} (${f.mimeType}) (${f.id})` );
+
     // Cache the Google Docs check to avoid multiple calls
     const isGoogleDoc = isGoogleDocsFile( f.mimeType! );
     
@@ -185,6 +187,9 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
           ( err, resp ) => {
             if( !resp?.data ) {
               console.warn( 'No data for download:', f.name );
+              if( err ) {
+                console.error( 'Download error:', err );
+              }
               resolve( false );
               return;
             }
