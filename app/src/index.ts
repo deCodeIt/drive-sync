@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google, drive_v3 } from 'googleapis';
 import asyncPool from 'tiny-async-pool';
 import fs from 'fs';
 import path from 'path';
@@ -79,15 +79,26 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
   if( !fs.existsSync( downloadsFolder ) ) {
     fs.mkdirSync( downloadsFolder, { recursive: true } );
   }
-  const listFilesResp = await drive.files.list(
-    {
-      q: `'${driveFolderId}' in parents and trashed=false`,
-      pageSize: 1000,
-      fields: 'nextPageToken, files(id, name, md5Checksum, size, mimeType)',
-    }
-  );
-
-  const files = listFilesResp.data.files || [];
+  // Get all files using pagination
+  const files: drive_v3.Schema$File[] = [];
+  let nextPageToken: string | undefined;
+  
+  do {
+    const listFilesResp = await drive.files.list(
+      {
+        q: `'${driveFolderId}' in parents and trashed=false`,
+        pageSize: 1000,
+        pageToken: nextPageToken,
+        fields: 'nextPageToken, files(id, name, md5Checksum, size, mimeType)',
+      }
+    );
+    
+    const pageFiles = listFilesResp.data.files || [];
+    files.push(...pageFiles);
+    nextPageToken = listFilesResp.data.nextPageToken || undefined;
+    
+    console.log(`Retrieved ${pageFiles.length} files (total: ${files.length})`);
+  } while (nextPageToken);
   // console.log( files );
 
   // const fileSet = new Set<string | null | undefined>();
