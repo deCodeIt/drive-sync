@@ -68,6 +68,10 @@ function sanitizeFileName(fileName: string): string {
     .trim();
 }
 
+function isShortcut(mimeType: string): boolean {
+  return mimeType === 'application/vnd.google-apps.shortcut';
+}
+
 async function downloadFolder( driveFolderId: string, name: string, parentDir: string ): Promise<void> {
   console.log( 'downloadFolder', parentDir, name, driveFolderId );
   const sanitizedName = sanitizeFileName( name );
@@ -101,6 +105,14 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
 
   for await( const value of asyncPool( argv.concurrency, files, async ( f ) => {
     count++;
+    
+    // Skip shortcuts entirely
+    if( isShortcut( f.mimeType! ) ) {
+      console.log( `Skipping shortcut: ${f.name}` );
+      return;
+    }
+
+    // Check if it's a folder
     if( f.mimeType === 'application/vnd.google-apps.folder' ) {
       foldersToProcessLater.push( f );
       return;
@@ -128,7 +140,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
     if( fs.existsSync( filePath ) ) {
       const existingSize = fs.statSync( filePath ).size;
       // For Google Docs files, we can't compare size directly since export size differs
-      if( !isGoogleDoc && existingSize >= parseInt( f.size! ) ) {
+      if( !isGoogleDoc && f.size && existingSize >= parseInt( f.size ) ) {
         return;
       }
       // For Google Docs, skip if file exists and has some content (> 0 bytes)
@@ -154,6 +166,9 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
           ( err, resp ) => {
             if( !resp?.data ) {
               console.warn( 'No data for export:', f.name );
+              if( err ) {
+                console.error( 'Export error:', err );
+              }
               resolve( false );
               return;
             }
@@ -201,7 +216,7 @@ async function downloadFolder( driveFolderId: string, name: string, parentDir: s
             resp.data
               .on( 'data', function( chunk ) {
                 downloadedBytes += chunk.length;
-                process.stdout.write( `${count}/${files.length} ${downloadedBytes}/${f.size}\r` );
+                process.stdout.write( `${count}/${files.length} ${downloadedBytes}/${f.size || 'unknown'}\r` );
                 dest.write( chunk );
               } )
               .on( 'end', () => {
