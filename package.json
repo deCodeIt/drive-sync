@@ -33,6 +33,7 @@
     "jsonwebtoken": "^9.0.2",
     "swagger-jsdoc": "^6.2.8",
     "tiny-async-pool": "^2.1.0",
+    "winston": "^3.19.0",
     "yargs": "^17.7.2"
   }
 }
